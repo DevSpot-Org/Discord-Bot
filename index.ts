@@ -6,6 +6,8 @@ import {
   Invite,
   Partials,
 } from "discord.js";
+import type { Request, Response } from "express";
+import express from "express";
 import { supabase } from "./supabase";
 
 const client = new Client({
@@ -83,3 +85,36 @@ client.on("guildMemberAdd", async (member) => {
 });
 
 client.login(process.env["DISCORD_BOT_TOKEN"]);
+
+const PORT = process.env["PORT"] || 3002;
+const ORIGIN = process.env["ORIGIN_URL"] || `http://localhost:${PORT}`;
+const app = express();
+
+app.use(express.json());
+app.use(express.static("public"));
+app.use(express.urlencoded({ extended: false }));
+
+app.get("/health", (_req: Request, res: Response) => {
+  res.status(200).json({
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Self ping route to keep the server alive
+app.get("/ping", (_req: Request, res: Response) => {
+  res.status(200).json({ status: "ok" });
+});
+
+// Set up self ping interval
+setInterval(() => {
+  fetch(`${ORIGIN}/ping`)
+    .then((response) => response.json())
+    .catch((error) => console.error("Self-ping failed:", error));
+}, 15 * 60 * 1000); // 15 minutes in milliseconds
+
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+});
+
+export default app;
